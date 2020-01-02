@@ -10,6 +10,7 @@ use crate::highlight::Highlighter;
 use crate::keys::KeyPress;
 use crate::layout::{Layout, Position};
 use crate::line_buffer::LineBuffer;
+use crate::prompt::Prompt;
 use crate::Result;
 
 pub type Mode = ();
@@ -77,7 +78,7 @@ impl Renderer for Sink {
 
     fn refresh_line(
         &mut self,
-        _prompt: &str,
+        _prompt: &dyn Prompt,
         _line: &LineBuffer,
         _hint: Option<&str>,
         _old_layout: &Layout,

@@ -5,6 +5,7 @@ use crate::keys::KeyPress;
 use crate::layout::{Layout, Position};
 use crate::line_buffer::LineBuffer;
 use crate::Result;
+use crate::prompt::Prompt;
 
 /// Terminal state
 pub trait RawMode: Sized {
@@ -33,7 +34,7 @@ pub trait Renderer {
     #[allow(clippy::too_many_arguments)]
     fn refresh_line(
         &mut self,
-        prompt: &str,
+        prompt: &dyn Prompt,
         line: &LineBuffer,
         hint: Option<&str>,
         old_layout: &Layout,
@@ -78,7 +79,7 @@ impl<'a, R: Renderer + ?Sized> Renderer for &'a mut R {
 
     fn refresh_line(
         &mut self,
-        prompt: &str,
+        prompt: &dyn Prompt,
         line: &LineBuffer,
         hint: Option<&str>,
         old_layout: &Layout,

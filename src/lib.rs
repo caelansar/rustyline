@@ -32,6 +32,7 @@ pub mod line_buffer;
 mod tty;
 mod undo;
 pub mod validate;
+pub mod prompt;
 
 use std::collections::HashMap;
 use std::fmt;
@@ -309,7 +310,7 @@ fn reverse_incremental_search<H: Helper>(
         } else {
             format!("(failed reverse-i-search)`{}': ", search_buf)
         };
-        s.refresh_prompt_and_line(&prompt)?;
+        s.refresh_prompt_and_line(&prompt::SimplePrompt(&prompt))?;
 
         cmd = s.next_cmd(input_state, rdr, true)?;
         if let Cmd::SelfInsert(_, c) = cmd {
@@ -371,7 +372,7 @@ fn reverse_incremental_search<H: Helper>(
 /// It will also handle special inputs in an appropriate fashion
 /// (e.g., C-c will exit readline)
 fn readline_edit<H: Helper>(
-    prompt: &str,
+    prompt: &dyn prompt::Prompt,
     initial: Option<(&str, &str)>,
     editor: &mut Editor<H>,
     original_mode: &tty::Mode,
@@ -621,7 +622,7 @@ impl Drop for Guard<'_> {
 /// Readline method that will enable RAW mode, call the `readline_edit()`
 /// method and disable raw mode
 fn readline_raw<H: Helper>(
-    prompt: &str,
+    prompt: &dyn prompt::Prompt,
     initial: Option<(&str, &str)>,
     editor: &mut Editor<H>,
 ) -> Result<String> {
@@ -732,7 +733,7 @@ impl<H: Helper> Editor<H> {
     /// Otherwise (e.g., if `stdin` is a pipe or the terminal is not supported),
     /// it uses file-style interaction.
     pub fn readline(&mut self, prompt: &str) -> Result<String> {
-        self.readline_with(prompt, None)
+        self.readline_with_prompt(&prompt::SimplePrompt(prompt), None)
     }
 
     /// This function behaves in the exact same manner as `readline`, except
@@ -743,15 +744,17 @@ impl<H: Helper> Editor<H> {
     /// the cursor and the string on the right is what will appear to the
     /// right of the cursor.
     pub fn readline_with_initial(&mut self, prompt: &str, initial: (&str, &str)) -> Result<String> {
-        self.readline_with(prompt, Some(initial))
+        self.readline_with_prompt(&prompt::SimplePrompt(prompt), Some(initial))
     }
 
-    fn readline_with(&mut self, prompt: &str, initial: Option<(&str, &str)>) -> Result<String> {
+    /// This function behaves in the exact same manner as `readline`, except
+    /// that it support extra prompt and pre-populating the input area
+    fn readline_with_prompt(&mut self, prompt: &dyn prompt::Prompt, initial: Option<(&str, &str)>) -> Result<String> {
         if self.term.is_unsupported() {
             debug!(target: "rustyline", "unsupported terminal");
             // Write prompt and flush it to stdout
             let mut stdout = io::stdout();
-            stdout.write_all(prompt.as_bytes())?;
+            stdout.write_all(prompt.first_line().as_bytes())?;
             stdout.flush()?;
 
             readline_direct()

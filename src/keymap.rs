@@ -8,6 +8,7 @@ use super::Result;
 use crate::config::Config;
 use crate::config::EditMode;
 use crate::keys::KeyPress;
+use crate::prompt::{Prompt, SimplePrompt};
 use crate::tty::{RawReader, Term, Terminal};
 
 /// The number of times one command should be repeated.
@@ -303,7 +304,7 @@ pub trait Refresher {
     /// Same as [`refresh_line`] with a specific message instead of hint
     fn refresh_line_with_msg(&mut self, msg: Option<String>) -> Result<()>;
     /// Same as `refresh_line` but with a dynamic prompt.
-    fn refresh_prompt_and_line(&mut self, prompt: &str) -> Result<()>;
+    fn refresh_prompt_and_line(&mut self, prompt: &dyn Prompt) -> Result<()>;
     /// Vi only, switch to insert mode.
     fn doing_insert(&mut self);
     /// Vi only, switch to command mode.
@@ -365,7 +366,7 @@ impl InputState {
             _ => unreachable!(),
         }
         loop {
-            wrt.refresh_prompt_and_line(&format!("(arg: {}) ", self.num_args))?;
+            wrt.refresh_prompt_and_line(&SimplePrompt(&format!("(arg: {}) ", self.num_args)))?;
             let key = rdr.next_key(true)?;
             #[allow(clippy::cast_possible_truncation)]
             match key {
@@ -523,7 +524,7 @@ impl InputState {
     ) -> Result<KeyPress> {
         self.num_args = digit.to_digit(10).unwrap() as i16;
         loop {
-            wrt.refresh_prompt_and_line(&format!("(arg: {}) ", self.num_args))?;
+            wrt.refresh_prompt_and_line(&SimplePrompt(&format!("(arg: {}) ", self.num_args)))?;
             let key = rdr.next_key(false)?;
             if let KeyPress::Char(digit @ '0'..='9') = key {
                 if self.num_args.abs() < 1000 {

@@ -25,6 +25,7 @@ use crate::keys::{self, KeyPress};
 use crate::layout::{Layout, Position};
 use crate::line_buffer::LineBuffer;
 use crate::Result;
+use crate::prompt::Prompt;
 
 const STDIN_FILENO: RawFd = libc::STDIN_FILENO;
 
@@ -533,7 +534,7 @@ impl Renderer for PosixRenderer {
 
     fn refresh_line(
         &mut self,
-        prompt: &str,
+        prompt: &dyn Prompt,
         line: &LineBuffer,
         hint: Option<&str>,
         old_layout: &Layout,
@@ -565,14 +566,14 @@ impl Renderer for PosixRenderer {
 
         if let Some(highlighter) = highlighter {
             // display the prompt
-            self.buffer
-                .push_str(&highlighter.highlight_prompt(prompt, default_prompt));
+            self.buffer.push_str(
+                &highlighter.highlight_prompt(prompt.first_line(), default_prompt));
             // display the input line
             self.buffer
                 .push_str(&highlighter.highlight(line, line.pos()));
         } else {
             // display the prompt
-            self.buffer.push_str(prompt);
+            self.buffer.push_str(prompt.first_line());
             // display the input line
             self.buffer.push_str(line);
         }
