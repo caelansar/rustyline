@@ -18,7 +18,6 @@ use crate::tty::{Renderer, Term, Terminal};
 use crate::undo::Changeset;
 use crate::validate::{ValidationContext, ValidationResult};
 use crate::prompt::{Prompt};
->>>>>>> b0bb1ec... Use dynamic Prompt object instead of string
 
 /// Represent the state during line editing.
 /// Implement rendering.

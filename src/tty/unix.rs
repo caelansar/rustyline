@@ -565,12 +565,18 @@ impl Renderer for PosixRenderer {
         self.buffer.push_str("\r\x1b[0K");
 
         if let Some(highlighter) = highlighter {
-            // display the prompt
+            let highlighted = highlighter.highlight(line, line.pos());
+            let mut lines = highlighted.lines();
             self.buffer.push_str(
                 &highlighter.highlight_prompt(prompt.first_line(), default_prompt));
-            // display the input line
-            self.buffer
-                .push_str(&highlighter.highlight(line, line.pos()));
+            self.buffer.push_str(lines.next().unwrap_or(""));
+            // display the input lines
+            for row in lines {
+                self.buffer.push('\n');
+                self.buffer.push_str(
+                    &highlighter.highlight_prompt(prompt.next_line(), default_prompt));
+                self.buffer.push_str(row);
+            }
         } else {
             // display the prompt
             self.buffer.push_str(prompt.first_line());

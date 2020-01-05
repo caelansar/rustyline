@@ -17,6 +17,17 @@ struct MyHelper {
     colored_prompt: String,
 }
 
+static COLORED_PROMPT: &'static str = "\x1b[1;32m>>\x1b[0m ";
+
+#[derive(Debug)]
+struct Prompt;
+
+impl rustyline::prompt::Prompt for Prompt {
+    fn first_line(&self) -> &str { "example> " }
+    fn next_line(&self) -> &str { "..> " }
+}
+
+
 impl Completer for MyHelper {
     type Candidate = Pair;
 
@@ -32,7 +43,8 @@ impl Completer for MyHelper {
 
 impl Hinter for MyHelper {
     fn hint(&self, line: &str, pos: usize, ctx: &Context<'_>) -> Option<String> {
-        self.hinter.hint(line, pos, ctx)
+        // self.hinter.hint(line, pos, ctx)
+        return Some(" <-- here we are".into());
     }
 }
 
@@ -42,15 +54,15 @@ impl Highlighter for MyHelper {
         prompt: &'p str,
         default: bool,
     ) -> Cow<'b, str> {
-        if default {
-            Borrowed(&self.colored_prompt)
+        if prompt.starts_with('.') {
+            format!("\x1b[1;32m{}\x1b[0m", prompt).into()
         } else {
-            Borrowed(prompt)
+            format!("\x1b[1;36m{}\x1b[0m", prompt).into()
         }
     }
 
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
-        Owned("\x1b[1m".to_owned() + hint + "\x1b[m")
+        Owned("\x1b[0;36m".to_owned() + hint + "\x1b[m")
     }
 
     fn highlight<'l>(&self, line: &'l str, pos: usize) -> Cow<'l, str> {
@@ -87,9 +99,7 @@ fn main() -> rustyline::Result<()> {
     }
     let mut count = 1;
     loop {
-        let p = format!("{}> ", count);
-        rl.helper_mut().expect("No helper").colored_prompt = format!("\x1b[1;32m{}\x1b[0m", p);
-        let readline = rl.readline(&p);
+        let readline = rl.readline_with_prompt(&Prompt, Some(("", "")));
         match readline {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());

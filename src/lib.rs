@@ -749,7 +749,7 @@ impl<H: Helper> Editor<H> {
 
     /// This function behaves in the exact same manner as `readline`, except
     /// that it support extra prompt and pre-populating the input area
-    fn readline_with_prompt(&mut self, prompt: &dyn prompt::Prompt, initial: Option<(&str, &str)>) -> Result<String> {
+    pub fn readline_with_prompt(&mut self, prompt: &dyn prompt::Prompt, initial: Option<(&str, &str)>) -> Result<String> {
         if self.term.is_unsupported() {
             debug!(target: "rustyline", "unsupported terminal");
             // Write prompt and flush it to stdout
