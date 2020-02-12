@@ -5,17 +5,20 @@ use rustyline::completion::{Completer, FilenameCompleter, Pair};
 use rustyline::config::OutputStreamType;
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{Highlighter, MatchingBracketHighlighter};
+use rustyline::validate::{self, Validator, MatchingBracketValidator};
 use rustyline::hint::{Hinter, HistoryHinter};
 use rustyline::{Cmd, CompletionType, Config, Context, EditMode, Editor, KeyPress};
-use rustyline_derive::{Helper, Validator};
+use rustyline_derive::Helper;
 
-#[derive(Helper, Validator)]
+#[derive(Helper)]
 struct MyHelper {
     completer: FilenameCompleter,
     highlighter: MatchingBracketHighlighter,
+    validator: MatchingBracketValidator,
     hinter: HistoryHinter,
     colored_prompt: String,
 }
+
 
 impl Completer for MyHelper {
     type Candidate = Pair;
@@ -62,6 +65,16 @@ impl Highlighter for MyHelper {
     }
 }
 
+impl Validator for MyHelper {
+    fn validate(&self, ctx: &mut validate::ValidationContext) -> rustyline::Result<validate::ValidationResult> {
+        self.validator.validate(ctx)
+    }
+
+    fn validate_while_typing(&self) -> bool {
+        self.validator.validate_while_typing()
+    }
+}
+
 // To debug rustyline:
 // RUST_LOG=rustyline=debug cargo run --example example 2> debug.log
 fn main() -> rustyline::Result<()> {
@@ -76,6 +89,7 @@ fn main() -> rustyline::Result<()> {
         completer: FilenameCompleter::new(),
         highlighter: MatchingBracketHighlighter::new(),
         hinter: HistoryHinter {},
+        validator: MatchingBracketValidator::new(),
         colored_prompt: "".to_owned(),
     };
     let mut rl = Editor::with_config(config);
