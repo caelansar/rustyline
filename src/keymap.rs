@@ -1,4 +1,5 @@
 //! Bindings from keys to command for Emacs and Vi modes
+use std::any::Any;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
@@ -15,7 +16,7 @@ pub type RepeatCount = usize;
 
 /// Commands
 // #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Cmd {
     /// abort
     Abort, // Miscellaneous Command
@@ -97,6 +98,9 @@ pub enum Cmd {
     /// accepts the line when cursor is at the end of the text (non including
     /// trailing whitespace), inserts newline character otherwise
     AcceptOrInsertLine,
+    /// yields a special value along with the current buffer and cursor
+    /// position to the readline caller
+    Yield(Arc<dyn Any+Send+Sync>),
 }
 
 impl Cmd {
