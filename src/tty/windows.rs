@@ -15,12 +15,14 @@ use winapi::um::{consoleapi, handleapi, processenv, winbase, wincon, winuser};
 
 use super::{width, RawMode, RawReader, Renderer, Term};
 use crate::config::{BellStyle, ColorMode, Config, OutputStreamType};
+use crate::edit::Prompt;
 use crate::error;
 use crate::highlight::Highlighter;
 use crate::keys::{self, KeyPress};
 use crate::layout::{Layout, Position};
 use crate::line_buffer::LineBuffer;
 use crate::Result;
+use crate::tty::add_prompt_and_highlight;
 
 const STDIN_FILENO: DWORD = winbase::STD_INPUT_HANDLE;
 const STDOUT_FILENO: DWORD = winbase::STD_OUTPUT_HANDLE;
@@ -348,7 +350,7 @@ impl Renderer for ConsoleRenderer {
 
     fn refresh_line(
         &mut self,
-        prompt: &str,
+        prompt: &Prompt,
         line: &LineBuffer,
         hint: Option<&str>,
         old_layout: &Layout,
@@ -363,18 +365,9 @@ impl Renderer for ConsoleRenderer {
 
         self.buffer.clear();
         let mut col = 0;
-        if let Some(highlighter) = highlighter {
-            // TODO handle ansi escape code (SetConsoleTextAttribute)
-            // append the prompt
-            col = self.wrap_at_eol(&highlighter.highlight_prompt(prompt, default_prompt), col);
-            // append the input line
-            col = self.wrap_at_eol(&highlighter.highlight(line, line.pos()), col);
-        } else {
-            // append the prompt
-            self.buffer.push_str(prompt);
-            // append the input line
-            self.buffer.push_str(line);
-        }
+        add_prompt_and_highlight(|s| { self.wrap_at_eol(s, col); },
+            highlighter, line, prompt);
+
         // append hint
         if let Some(hint) = hint {
             if let Some(highlighter) = highlighter {
@@ -426,11 +419,13 @@ impl Renderer for ConsoleRenderer {
     }
 
     /// Characters with 2 column width are correctly handled (not split).
-    fn calculate_position(&self, s: &str, orig: Position) -> Position {
+    fn calculate_position(&self, s: &str, orig: Position, left_margin: usize)
+        -> Position
+    {
         let mut pos = orig;
         for c in s.graphemes(true) {
             if c == "\n" {
-                pos.col = 0;
+                pos.col = left_margin;
                 pos.row += 1;
             } else {
                 let cw = c.width();
