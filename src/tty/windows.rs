@@ -8,7 +8,6 @@ use std::sync::atomic;
 use log::{debug, warn};
 use scopeguard;
 use unicode_segmentation::UnicodeSegmentation;
-use unicode_width::UnicodeWidthStr;
 use winapi::shared::minwindef::{BOOL, DWORD, FALSE, TRUE, WORD};
 use winapi::um::winnt::{CHAR, HANDLE};
 use winapi::um::{consoleapi, handleapi, processenv, winbase, wincon, winuser};
@@ -249,6 +248,7 @@ pub struct ConsoleRenderer {
     buffer: String,
     colors_enabled: bool,
     bell_style: BellStyle,
+    tab_stop: usize,
 }
 
 impl ConsoleRenderer {
@@ -267,6 +267,7 @@ impl ConsoleRenderer {
             buffer: String::with_capacity(1024),
             colors_enabled,
             bell_style,
+            tab_stop: 8,
         }
     }
 
@@ -416,31 +417,6 @@ impl Renderer for ConsoleRenderer {
         Ok(())
     }
 
-    /// Characters with 2 column width are correctly handled (not split).
-    fn calculate_position(&self, s: &str, orig: Position, left_margin: usize)
-        -> Position
-    {
-        let mut pos = orig;
-        for c in s.graphemes(true) {
-            if c == "\n" {
-                pos.col = left_margin;
-                pos.row += 1;
-            } else {
-                let cw = c.width();
-                pos.col += cw;
-                if pos.col > self.cols {
-                    pos.row += 1;
-                    pos.col = cw;
-                }
-            }
-        }
-        if pos.col == self.cols {
-            pos.col = 0;
-            pos.row += 1;
-        }
-        pos
-    }
-
     fn beep(&mut self) -> Result<()> {
         match self.bell_style {
             BellStyle::Audible => {
@@ -474,6 +450,10 @@ impl Renderer for ConsoleRenderer {
 
     fn get_columns(&self) -> usize {
         self.cols
+    }
+
+    fn get_tab_stop(&self) -> usize {
+        self.tab_stop
     }
 
     /// Try to get the number of rows in the current terminal,
@@ -523,6 +503,7 @@ pub struct Console {
     ansi_colors_supported: bool,
     stream_type: OutputStreamType,
     bell_style: BellStyle,
+    tab_stop: usize,
 }
 
 impl Console {
@@ -544,7 +525,7 @@ impl Term for Console {
     fn new(
         color_mode: ColorMode,
         stream_type: OutputStreamType,
-        _tab_stop: usize,
+        tab_stop: usize,
         bell_style: BellStyle,
     ) -> Console {
         use std::ptr;
@@ -579,6 +560,7 @@ impl Term for Console {
             ansi_colors_supported: false,
             stream_type,
             bell_style,
+            tab_stop,
         }
     }
 
