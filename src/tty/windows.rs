@@ -296,27 +296,26 @@ impl ConsoleRenderer {
 
     // You can't have both ENABLE_WRAP_AT_EOL_OUTPUT and
     // ENABLE_VIRTUAL_TERMINAL_PROCESSING. So we need to wrap manually.
-    fn wrap_at_eol(&mut self, s: &str, mut col: usize) -> usize {
+    fn wrap_at_eol(&mut self, s: &str, col: &mut usize) {
         let mut esc_seq = 0;
         for c in s.graphemes(true) {
             if c == "\n" {
-                col = 0;
+                *col = 0;
                 self.buffer.push_str(c);
             } else {
                 let cw = width(c, &mut esc_seq);
-                col += cw;
-                if col > self.cols {
+                *col += cw;
+                if *col > self.cols {
                     self.buffer.push('\n');
-                    col = cw;
+                    *col = cw;
                 }
                 self.buffer.push_str(c);
             }
         }
-        if col == self.cols {
+        if *col == self.cols {
             self.buffer.push('\n');
-            col = 0;
+            *col = 0;
         }
-        col
     }
 }
 
@@ -357,7 +356,6 @@ impl Renderer for ConsoleRenderer {
         new_layout: &Layout,
         highlighter: Option<&dyn Highlighter>,
     ) -> Result<()> {
-        let default_prompt = new_layout.default_prompt;
         let cursor = new_layout.cursor;
         let end_pos = new_layout.end;
         let current_row = old_layout.cursor.row;
@@ -365,13 +363,13 @@ impl Renderer for ConsoleRenderer {
 
         self.buffer.clear();
         let mut col = 0;
-        add_prompt_and_highlight(|s| { self.wrap_at_eol(s, col); },
+        add_prompt_and_highlight(|s| { self.wrap_at_eol(s, &mut col); },
             highlighter, line, prompt);
 
         // append hint
         if let Some(hint) = hint {
             if let Some(highlighter) = highlighter {
-                self.wrap_at_eol(&highlighter.highlight_hint(hint), col);
+                self.wrap_at_eol(&highlighter.highlight_hint(hint), &mut col);
             } else {
                 self.buffer.push_str(hint);
             }
