@@ -129,18 +129,17 @@ impl<'out, 'prompt, H: Helper> State<'out, 'prompt, H> {
 
     pub fn move_cursor(&mut self) -> Result<()> {
         // calculate the desired position of the cursor
-        let cursor = self
-            .out
-            .calculate_position(&self.line[..self.line.pos()], Position::default(), 0);
-        if self.layout.cursor == cursor {
+        let new_layout = self.out.compute_layout(
+            &self.prompt, &self.line, None);
+        if new_layout.cursor == self.layout.cursor {
             return Ok(());
         }
         if self.highlight_char() {
             self.refresh_default(Info::NoHint)?;
         } else {
-            self.out.move_cursor(self.layout.cursor, cursor)?;
+            self.out.move_cursor(self.layout.cursor, new_layout.cursor)?;
             self.layout.prompt_size = self.prompt.size;
-            self.layout.cursor = cursor;
+            self.layout.cursor = new_layout.cursor;
             debug_assert!(self.layout.cursor <= self.layout.end);
         }
         Ok(())
