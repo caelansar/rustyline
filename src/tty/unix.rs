@@ -1,5 +1,5 @@
 //! Unix specific definitions
-use std::cmp::Ordering;
+use std::cmp::{Ordering, min};
 use std::io::{self, Read, Write};
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::sync;
@@ -21,7 +21,6 @@ use crate::keys::{self, KeyPress};
 use crate::layout::{Layout, Position};
 use crate::line_buffer::LineBuffer;
 use crate::Result;
-use crate::tty::add_prompt_and_highlight;
 
 const STDIN_FILENO: RawFd = libc::STDIN_FILENO;
 
@@ -546,39 +545,28 @@ impl Renderer for PosixRenderer {
 
         let cursor = new_layout.cursor;
         let end_pos = new_layout.end;
-        let current_row = old_layout.cursor.row;
-        let old_rows = old_layout.end.row;
 
-        // old_rows < cursor.row if the prompt spans multiple lines and if
-        // this is the default State.
-        let cursor_row_movement = old_rows.saturating_sub(current_row);
+        let cursor_row_movement = old_layout.lines_below_cursor();
         // move the cursor down as required
         if cursor_row_movement > 0 {
             write!(self.buffer, "\x1b[{}B", cursor_row_movement).unwrap();
         }
-        // clear old rows
-        for _ in 0..old_rows {
-            self.buffer.push_str("\r\x1b[0K\x1b[A");
+        // clear old rows if there are any, zero is only on initial layout
+        if old_layout.screen_rows > 0 {
+            for _ in 0..min(old_layout.end.row, old_layout.screen_rows - 1) {
+                self.buffer.push_str("\r\x1b[0K\x1b[A");
+            }
         }
         // clear the line
         self.buffer.push_str("\r\x1b[0K");
+        self.render_screen(prompt, line, hint, new_layout, highlighter);
 
-        add_prompt_and_highlight(|s| self.buffer.push_str(s),
-            highlighter, line, prompt);
-        // display hint
-        if let Some(hint) = hint {
-            if let Some(highlighter) = highlighter {
-                self.buffer.push_str(&highlighter.highlight_hint(hint));
-            } else {
-                self.buffer.push_str(hint);
-            }
-        }
         // we have to generate our own newline on line wrap
         if end_pos.col == 0 && end_pos.row > 0 && !self.buffer.ends_with('\n') {
             self.buffer.push_str("\n");
         }
         // position the cursor
-        let new_cursor_row_movement = end_pos.row - cursor.row;
+        let new_cursor_row_movement = new_layout.lines_below_cursor();
         // move the cursor up as required
         if new_cursor_row_movement > 0 {
             write!(self.buffer, "\x1b[{}A", new_cursor_row_movement).unwrap();
@@ -639,6 +627,10 @@ impl Renderer for PosixRenderer {
     fn get_rows(&self) -> usize {
         let (_, rows) = get_win_size(&self.out);
         rows
+    }
+
+    fn get_buffer(&mut self) -> &mut String {
+        &mut self.buffer
     }
 
     fn colors_enabled(&self) -> bool {
@@ -893,19 +885,19 @@ mod test {
         };
 
         let mut line = LineBuffer::init("", 0, None);
-        let old_layout = out.compute_layout(&prompt, &line, None);
+        let old_layout = out.compute_layout(&prompt, &line, None, 0);
         assert_eq!(Position { col: 2, row: 0 }, old_layout.cursor);
         assert_eq!(old_layout.cursor, old_layout.end);
 
         assert_eq!(Some(true), line.insert('a', out.cols - prompt.size.col + 1));
-        let new_layout = out.compute_layout(&prompt, &line, None);
+        let new_layout = out.compute_layout(&prompt, &line, None, 0);
         assert_eq!(Position { col: 1, row: 1 }, new_layout.cursor);
         assert_eq!(new_layout.cursor, new_layout.end);
         out.refresh_line(&prompt, &line, None, &old_layout, &new_layout, None)
             .unwrap();
         #[rustfmt::skip]
         assert_eq!(
-            "\r\u{1b}[0K> aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\u{1b}[1C",
+            "\r\u{1b}[0K> aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\na\r\u{1b}[1C",
             out.buffer
         );
     }
