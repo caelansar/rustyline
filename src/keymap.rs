@@ -21,6 +21,8 @@ pub enum Cmd {
     /// abort
     Abort, // Miscellaneous Command
     /// accept-line
+    ///
+    /// See also AcceptOrInsertLine
     AcceptLine,
     /// beginning-of-history
     BeginningOfHistory,
@@ -95,9 +97,19 @@ pub enum Cmd {
     /// moves cursor to the line below or switches to next history entry if
     /// the cursor is already on the last line
     LineDownOrNextHistory(RepeatCount),
-    /// accepts the line when cursor is at the end of the text (non including
-    /// trailing whitespace), inserts newline character otherwise
-    AcceptOrInsertLine,
+    /// Inserts a newline
+    Newline,
+    /// Either accepts or inserts a newline
+    ///
+    /// Always inserts newline if input is non-valid. Can also insert newline
+    /// if cursor is in the middle of the text
+    ///
+    /// If you support multi-line input:
+    /// * Use `accept_in_the_middle: true` for mostly single-line cases,
+    ///   for example command-line.
+    /// * Use `accept_in_the_middle: false` for mostly multi-line cases,
+    ///   for example SQL or JSON input.
+    AcceptOrInsertLine { accept_in_the_middle: bool },
     /// yields a special value along with the current buffer and cursor
     /// position to the readline caller
     Yield(Arc<dyn Any+Send+Sync>),
@@ -902,7 +914,9 @@ impl InputState {
                 }
             }
             KeyPress::Ctrl('J') |
-            KeyPress::Enter => Cmd::AcceptLine,
+            KeyPress::Enter => {
+                Cmd::AcceptOrInsertLine { accept_in_the_middle: true }
+            }
             KeyPress::Down => Cmd::LineDownOrNextHistory(1),
             KeyPress::Up => Cmd::LineUpOrPreviousHistory(1),
             KeyPress::Ctrl('R') => Cmd::ReverseSearchHistory,
