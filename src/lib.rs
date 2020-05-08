@@ -602,6 +602,7 @@ fn readline_edit<H: Helper>(
                     }
                     | (Cmd::Newline, _, _)
                     | (Cmd::AcceptOrInsertLine { .. }, false, _)
+                    | (Cmd::AcceptOrInsertLine { .. }, true, false)
                     => {
                         s.edit_insert('\n', 1)?;
                     }
