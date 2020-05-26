@@ -65,7 +65,7 @@ fn get_win_size<T: AsRawFd + ?Sized>(fileno: &T) -> (usize, usize) {
                 let rows = if size.ws_row == 0 {
                     0
                 } else {
-                    usize::max_value()
+                    usize::max_value() / 2
                 };
                 (cols, rows)
             }
