@@ -9,6 +9,7 @@ use unicode_width::UnicodeWidthChar;
 
 use super::{Context, Helper, Result};
 use crate::highlight::Highlighter;
+use crate::hint::Hint;
 use crate::history::Direction;
 use crate::keymap::{Anchor, At, CharSearch, Cmd, Movement, RepeatCount, Word};
 use crate::keymap::{InputState, Invoke, Refresher};
@@ -43,7 +44,7 @@ pub struct State<'out, 'prompt, H: Helper> {
     pub changes: Rc<RefCell<Changeset>>, // changes to line, for undo/redo
     pub helper: Option<&'out H>,
     pub ctx: Context<'out>,   // Give access to history for `hinter`
-    pub hint: Option<String>, // last hint displayed
+    pub hint: Option<Box<dyn Hint>>, // last hint displayed
     highlight_char: bool,     // `true` if a char has been highlighted
 }
 
@@ -160,7 +161,7 @@ impl<'out, 'prompt, H: Helper> State<'out, 'prompt, H> {
         let prompt = non_default_prompt.unwrap_or(&self.prompt);
         let info = match info {
             Info::NoHint => None,
-            Info::Hint => self.hint.as_deref(),
+            Info::Hint => self.hint.as_ref().map(|h| h.display()),
             Info::Msg(msg) => msg,
         };
         let highlighter = if self.out.colors_enabled() {
@@ -189,7 +190,7 @@ impl<'out, 'prompt, H: Helper> State<'out, 'prompt, H> {
     pub fn hint(&mut self) {
         if let Some(hinter) = self.helper {
             let hint = hinter.hint(self.line.as_str(), self.line.pos(), &self.ctx);
-            self.hint = hint;
+            self.hint = hint.map(|val| Box::new(val) as Box<dyn Hint>)
         } else {
             self.hint = None
         }
@@ -693,7 +694,7 @@ pub fn init_state<'out, H: Helper>(
         changes: Rc::new(RefCell::new(Changeset::new())),
         helper,
         ctx: Context::new(history),
-        hint: Some("hint".to_owned()),
+        hint: Some(Box::new("hint".to_owned())),
         highlight_char: false,
     }
 }
