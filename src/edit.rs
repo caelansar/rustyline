@@ -61,7 +61,7 @@ impl<'out, 'prompt, H: Helper> State<'out, 'prompt, H> {
         helper: Option<&'out H>,
         ctx: Context<'out>,
     ) -> State<'out, 'prompt, H> {
-        let prompt_size = out.calculate_position(prompt, Position::default(), 0);
+        let prompt_size = out.meter().update(prompt);
         let has_continuation = helper
             .map(|h| h.has_continuation_prompt())
             .unwrap_or(false);
@@ -103,9 +103,7 @@ impl<'out, 'prompt, H: Helper> State<'out, 'prompt, H> {
             let rc = input_state.next_cmd(rdr, self, single_esc_abort);
             if rc.is_err() && self.out.sigwinch() {
                 self.out.update_size();
-                self.prompt.size = self
-                    .out
-                    .calculate_position(self.prompt.text, Position::default(), 0);
+                self.prompt.size = self.out.meter().update(self.prompt.text);
                 self.refresh_line()?;
                 continue;
             }
@@ -131,11 +129,12 @@ impl<'out, 'prompt, H: Helper> State<'out, 'prompt, H> {
     pub fn move_cursor(&mut self) -> Result<()> {
         // calculate the desired position of the cursor
         let new_layout = self.out.compute_layout(
-            &self.prompt, &self.line, None);
+            &self.prompt, &self.line, None, self.layout.scroll_top);
         if new_layout.cursor == self.layout.cursor {
             return Ok(());
         }
-        if self.highlight_char() {
+        let scroll_changed = new_layout.scroll_top != self.layout.scroll_top;
+        if scroll_changed || self.highlight_char() {
             self.refresh_default(Info::NoHint)?;
         } else {
             self.out.move_cursor(self.layout.cursor, new_layout.cursor)?;
@@ -171,7 +170,8 @@ impl<'out, 'prompt, H: Helper> State<'out, 'prompt, H> {
             None
         };
 
-        let new_layout = self.out.compute_layout(prompt, &self.line, info);
+        let new_layout = self.out.compute_layout(prompt, &self.line, info,
+            self.layout.scroll_top);
         debug!(target: "rustyline", "old layout: {:?}", self.layout);
         debug!(target: "rustyline", "new layout: {:?}", new_layout);
         self.out.refresh_line(
@@ -270,7 +270,7 @@ impl<'out, 'prompt, H: Helper> Refresher for State<'out, 'prompt, H> {
     fn refresh_prompt_and_line(&mut self, prompt: &str) -> Result<()> {
         let prompt = Prompt {
             text: prompt,
-            size: self.out.calculate_position(prompt, Position::default(), 0),
+            size: self.out.meter().update(prompt),
             is_default: false,
             has_continuation: false,
         };
