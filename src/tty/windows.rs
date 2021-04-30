@@ -22,7 +22,6 @@ use crate::keys::{KeyCode as K, KeyEvent, Modifiers as M};
 use crate::layout::{Layout, Position};
 use crate::line_buffer::LineBuffer;
 use crate::Result;
-use crate::tty::add_prompt_and_highlight;
 
 const STDIN_FILENO: DWORD = winbase::STD_INPUT_HANDLE;
 const STDOUT_FILENO: DWORD = winbase::STD_OUTPUT_HANDLE;
