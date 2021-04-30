@@ -62,11 +62,13 @@ impl RawReader for IntoIter<KeyEvent> {
     }
 }
 
-pub struct Sink {}
+pub struct Sink {
+    buffer: String
+}
 
 impl Sink {
     pub fn new() -> Sink {
-        Sink {}
+        Sink { buffer: String::new() }
     }
 }
 
@@ -87,14 +89,6 @@ impl Renderer for Sink {
         _highlighter: Option<&dyn Highlighter>,
     ) -> Result<()> {
         Ok(())
-    }
-
-    fn calculate_position(&self, s: &str, orig: Position, _left_margin: usize)
-        -> Position
-    {
-        let mut pos = orig;
-        pos.col += s.len();
-        pos
     }
 
     fn write_and_flush(&self, _: &[u8]) -> Result<()> {
@@ -119,8 +113,15 @@ impl Renderer for Sink {
         80
     }
 
+    fn get_tab_stop(&self) -> usize {
+        8
+    }
+
     fn get_rows(&self) -> usize {
         24
+    }
+    fn get_buffer(&mut self) -> &mut String {
+        &mut self.buffer
     }
 
     fn colors_enabled(&self) -> bool {
